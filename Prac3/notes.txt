@@ -1,0 +1,37 @@
+1: FILTER:
+    threadNum = Stores the total number of threads in the system.
+
+    level[] = Tracks the waiting level of the threads. Threads with a higher level are prioritised.
+
+    vic[] = This is used to break ties. Based on threadId.
+
+    _MutualExclusion: Only one thread will reach the highest level value allowed (and in the event of a tie, it is based on threadID). This is the thread allowed to enter its
+    its critical section.
+    
+    _Deadlock Free: At least one thread reaches the critical section every time (until all threads are done). This is because there will always be a "winner", even
+    
+    _Starvation Free: (not guaranteed) Every thread eventually gets a turn for their critical section as a thread which has completed its critical section enters level=-1, and no longer
+    competes. Therefore, every thread will get a chance as one thread will be the last one remaining. May not work if a thread fails, etc.
+
+
+2: IMPROVED_FILTER:
+
+    _What is the improvement?
+        Improved waiting time. There is an early exit if the thread is not the victim.
+        Also, the Improved_Filter has less busy waiting as the thread will yield.
+
+3: STRAW:
+    lock: Either a regular filter lock or improved.
+
+    void sip(): This is the critical section. Attempts to lock, the time delay simulates a sip duration, then unlock.
+    
+
+
+4: BOBA:
+    threadId: {obvious...}
+
+    bobaStraw: This is the shared resource between the threads (Multiple threads use the same straw).
+
+    run(): main activity of the thread. Every thread attempts to sip when .start() is called.
+
+
