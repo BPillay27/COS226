@@ -1,0 +1,6 @@
+FIFO CONSENSUS:
+
+->Does have mutual exclusion, deadlock-freedom and starvation free. It is fair and there is consensus.
+
+->This is the 2 thread lock.
+
