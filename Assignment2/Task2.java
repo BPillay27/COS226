@@ -5,8 +5,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class Task2 {
     public interface MyBlockingQueue<T> {
         void enqueue(T item) throws InterruptedException;
+
         T dequeue() throws InterruptedException;
+
         int size();
+
         int capacity();
     }
 
@@ -14,59 +17,156 @@ public class Task2 {
         private final Object[] queue;
         private int head = 0, tail = 0, count = 0;
 
-        //add any lock and conditions here
+        // add any lock and conditions here
+        private final ReentrantLock lock = new ReentrantLock();
+        private final Condition notEmpty = lock.newCondition();
+        private final Condition notFull = lock.newCondition();
 
         public CoarseGrainedBlockingQueue(int capacity) {
-            if (capacity <= 0) throw new IllegalArgumentException("capacity must be > 0");
+            if (capacity <= 0)
+                throw new IllegalArgumentException("capacity must be > 0");
             this.queue = new Object[capacity];
         }
 
         @Override
         public void enqueue(T item) throws InterruptedException {
-            //TODO: Implement the function
+            // done
+            if (item == null)
+                throw new NullPointerException("item cannot be null");
+            lock.lock();
+            try {
+                while (count == queue.length) {
+                    notFull.await();
+                }
+                queue[tail] = item;
+                tail = (tail + 1) % queue.length;
+                count++;
+                notEmpty.signal();
+            } finally {
+                lock.unlock();
+            }
         }
 
+        @SuppressWarnings("unchecked")
         @Override
         public T dequeue() throws InterruptedException {
-            //TODO: Implement the function
+            // TODO: Implement the function
+            lock.lock();
+            try {
+                while (count == 0) {
+                    notEmpty.await();
+                }
+                Object x = queue[head];
+                queue[head] = null;
+                head = (head + 1) % queue.length;
+                count--;
+                notFull.signal();
+                return (T) x;
+            } finally {
+                lock.unlock();
+            }
         }
 
         @Override
         public int size() {
             lock.lock();
-            try { return count; } finally { lock.unlock(); }
+            try {
+                return count;
+            } finally {
+                lock.unlock();
+            }
         }
 
         @Override
-        public int capacity() { return queue.length; }
+        public int capacity() {
+            return queue.length;
+        }
     }
 
     public static class FineGrainedBlockingQueue<T> implements MyBlockingQueue<T> {
         private final Object[] queue;
-        private volatile int head = 0, tail = 0; 
+        private volatile int head = 0, tail = 0;
         private final AtomicInteger size = new AtomicInteger(0);
 
-        //add any lock and conditions here
-        
+        // add any lock and conditions here
+        private final ReentrantLock enqLock = new ReentrantLock();
+        private final Condition notFull = enqLock.newCondition();
+        private final ReentrantLock deqLock = new ReentrantLock();
+        private final Condition notEmpty = deqLock.newCondition();
+
         public FineGrainedBlockingQueue(int capacity) {
-            if (capacity <= 0) throw new IllegalArgumentException("capacity must be > 0");
+            if (capacity <= 0)
+                throw new IllegalArgumentException("capacity must be > 0");
             this.queue = new Object[capacity];
         }
 
         @Override
         public void enqueue(T item) throws InterruptedException {
-            //TODO: Implement the function
+            // TODO: Implement the function
+            if (item == null)
+                throw new NullPointerException("item cannot be null");
+
+            enqLock.lock();
+            try {
+                while (size.get() == queue.length) {
+                    notFull.await();
+                }
+                queue[tail] = item;
+                tail = (tail + 1) % queue.length;
+
+                size.getAndIncrement();
+
+                deqLock.lock();
+                try {
+                    notEmpty.signal();
+                } finally {
+                    deqLock.unlock();
+                }
+
+            } finally {
+                enqLock.unlock();
+            }
         }
 
+        @SuppressWarnings("unchecked")
         @Override
         public T dequeue() throws InterruptedException {
-            //TODO: Implement the function
+            // done
+            Object result;
+
+            deqLock.lock();
+            try {
+                while (size.get() == 0) {
+                    notEmpty.await();
+                }
+                result = queue[head];
+                queue[head] = null;
+                head = (head + 1) % queue.length;
+
+                int prev = size.getAndDecrement();
+
+                if (prev == queue.length) {
+                    enqLock.lock();
+                    try {
+                        notFull.signal();
+                    } finally {
+                        enqLock.unlock();
+                    }
+                }
+            } finally {
+                deqLock.unlock();
+            }
+            return (T) result;
         }
 
         @Override
-        public int size() { return size.get(); }
+        public int size() {
+            return size.get();
+        }
 
         @Override
-        public int capacity() { return queue.length; }
+        public int capacity() {
+            return queue.length;
+        }
     }
 }
