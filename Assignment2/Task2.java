@@ -50,7 +50,7 @@ public class Task2 {
         @SuppressWarnings("unchecked")
         @Override
         public T dequeue() throws InterruptedException {
-            // TODO: Implement the function
+            // done
             lock.lock();
             try {
                 while (count == 0) {
@@ -102,7 +102,7 @@ public class Task2 {
 
         @Override
         public void enqueue(T item) throws InterruptedException {
-            // TODO: Implement the function
+            // done
             if (item == null)
                 throw new NullPointerException("item cannot be null");
 
@@ -113,18 +113,16 @@ public class Task2 {
                 }
                 queue[tail] = item;
                 tail = (tail + 1) % queue.length;
-
                 size.getAndIncrement();
-
-                deqLock.lock();
-                try {
-                    notEmpty.signal();
-                } finally {
-                    deqLock.unlock();
-                }
-
             } finally {
                 enqLock.unlock();
+            }
+
+            deqLock.lock();
+            try{
+                notEmpty.signal();
+            } finally{
+                deqLock.unlock();
             }
         }
 
@@ -143,19 +141,18 @@ public class Task2 {
                 queue[head] = null;
                 head = (head + 1) % queue.length;
 
-                int prev = size.getAndDecrement();
-
-                if (prev == queue.length) {
-                    enqLock.lock();
-                    try {
-                        notFull.signal();
-                    } finally {
-                        enqLock.unlock();
-                    }
-                }
+                size.getAndDecrement();
             } finally {
                 deqLock.unlock();
             }
+            
+            enqLock.lock();
+            try{
+                notFull.signal();
+            } finally{
+                enqLock.unlock();
+            }
+
             return (T) result;
         }
 
