@@ -1,19 +1,14 @@
-import java.util.*;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.locks.Condition;
-
+//import java.util.*;
 public class Task1 {
     static class ReusableBarrier {
         private final int friends;
         private final Runnable task;
 
         private int completed = 0;
-        private int current_pizza = 0;
+        private volatile int current_pizza = 0;
 
         // add lock here
-        private final ReentrantLock lock = new ReentrantLock();
-        private final Condition con = lock.newCondition();
-
+        private final CLHLock lock=new CLHLock();
         public ReusableBarrier(int friends) {
             this(friends, null);
         }
@@ -27,9 +22,10 @@ public class Task1 {
 
         public void await() throws InterruptedException {
             // done
+            final int myGen;
             lock.lock();
             try {
-                int myGen = current_pizza;
+                myGen = current_pizza;
                 int arrivals = ++completed;
 
                 if (arrivals == friends) {
@@ -38,16 +34,19 @@ public class Task1 {
                             task.run();
                     } finally {
                         completed = 0;
-                        current_pizza++;
-                        con.signalAll();
+                        current_pizza=myGen+1;
                     }
-                } else {
-                    while (myGen == current_pizza) {
-                        con.await();
-                    }
-                }
+                    return;
+                } 
             } finally {
                 lock.unlock();
+            }
+
+            while (current_pizza==myGen) {
+                if(Thread.interrupted()){
+                    throw new InterruptedException();
+                }
+                Thread.onSpinWait();
             }
         }
     }
