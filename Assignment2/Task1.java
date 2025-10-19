@@ -1,14 +1,15 @@
-//import java.util.*;
 public class Task1 {
     static class ReusableBarrier {
         private final int friends;
         private final Runnable task;
 
         private int completed = 0;
-        private volatile int current_pizza = 0;
+        private int current_pizza = 0;
 
         // add lock here
-        private final CLHLock lock=new CLHLock();
+        private final java.util.concurrent.locks.Lock lock = new java.util.concurrent.locks.ReentrantLock();
+        private final java.util.concurrent.locks.Condition con = lock.newCondition();
+
         public ReusableBarrier(int friends) {
             this(friends, null);
         }
@@ -22,31 +23,24 @@ public class Task1 {
 
         public void await() throws InterruptedException {
             // done
-            final int myGen;
             lock.lock();
             try {
-                myGen = current_pizza;
-                int arrivals = ++completed;
+                int myPizza = current_pizza;
+                completed++;
 
-                if (arrivals == friends) {
-                    try {
-                        if (task != null)
-                            task.run();
-                    } finally {
-                        completed = 0;
-                        current_pizza=myGen+1;
+                if (completed == friends) {
+                    if (task != null)
+                        task.run();
+                    completed = 0;
+                    current_pizza++;
+                    con.signalAll();
+                } else {
+                    while (myPizza == current_pizza) {
+                        con.await();
                     }
-                    return;
-                } 
+                }
             } finally {
                 lock.unlock();
-            }
-
-            while (current_pizza==myGen) {
-                if(Thread.interrupted()){
-                    throw new InterruptedException();
-                }
-                Thread.onSpinWait();
             }
         }
     }

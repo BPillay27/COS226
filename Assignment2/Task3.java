@@ -3,7 +3,7 @@ import java.util.concurrent.*;
 
 public class Task3 {
     public static final int POISON_PILL = -1;
-    private static final int PIZZAS_PER_PRODUCER=5;
+    public static final int PIZZAS_PER_PRODUCER = 10;
 
     static class Producer implements Callable<List<Integer>> {
         private final int id;
@@ -15,17 +15,18 @@ public class Task3 {
         }
 
         public List<Integer> call() throws Exception {
-            //done
-            List<Integer> made=new ArrayList<>(PIZZAS_PER_PRODUCER);
-            ThreadLocalRandom rnd=ThreadLocalRandom.current();
+            // done
+            List<Integer> produced = new ArrayList<>();
+            Random rand = new Random();
 
-            for(int i=0;i<PIZZAS_PER_PRODUCER;i++){
-                Thread.sleep(rnd.nextInt(50,151));
-                int pizza=id*1000+i;
+            for (int i = 0; i < PIZZAS_PER_PRODUCER; i++) {
+                int pizza = i;
                 queue.put(pizza);
-                made.add(pizza);
+                produced.add(pizza);
+                Thread.sleep(rand.nextInt(300) + 100);
             }
-            return made;
+            //queue.put(POISON_PILL);
+            return produced;
         }
     }
 
@@ -39,18 +40,18 @@ public class Task3 {
         }
 
         public List<Integer> call() throws Exception {
-            //done
-            List<Integer> delivered=new ArrayList<>();
-            ThreadLocalRandom rnd=ThreadLocalRandom.current();
+            // done
+            List<Integer> delivered = new ArrayList<>();
+            Random rand = new Random();
 
-            while(true){
-                int x=queue.take();
-                if(x==POISON_PILL){
-                    queue.put(POISON_PILL);
+            while (true) {
+                int item = queue.take();
+
+                if (item == POISON_PILL) {
                     break;
                 }
-                Thread.sleep(rnd.nextInt(80,201));
-                delivered.add(x);
+                delivered.add(item);
+                Thread.sleep(rand.nextInt(400) + 100);
             }
             return delivered;
         }

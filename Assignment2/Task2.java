@@ -1,5 +1,3 @@
-import java.util.concurrent.locks.*;
-import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Task2 {
@@ -18,9 +16,9 @@ public class Task2 {
         private int head = 0, tail = 0, count = 0;
 
         // add any lock and conditions here
-        private final ReentrantLock lock = new ReentrantLock();
-        private final Condition notEmpty = lock.newCondition();
-        private final Condition notFull = lock.newCondition();
+        private final java.util.concurrent.locks.Lock lock = new java.util.concurrent.locks.ReentrantLock();
+        private final java.util.concurrent.locks.Condition notFull = lock.newCondition();
+        private final java.util.concurrent.locks.Condition notEmpty = lock.newCondition();
 
         public CoarseGrainedBlockingQueue(int capacity) {
             if (capacity <= 0)
@@ -31,8 +29,6 @@ public class Task2 {
         @Override
         public void enqueue(T item) throws InterruptedException {
             // done
-            if (item == null)
-                throw new NullPointerException("item cannot be null");
             lock.lock();
             try {
                 while (count == queue.length) {
@@ -89,10 +85,11 @@ public class Task2 {
         private final AtomicInteger size = new AtomicInteger(0);
 
         // add any lock and conditions here
-        private final ReentrantLock enqLock = new ReentrantLock();
-        private final Condition notFull = enqLock.newCondition();
-        private final ReentrantLock deqLock = new ReentrantLock();
-        private final Condition notEmpty = deqLock.newCondition();
+        private final java.util.concurrent.locks.Lock enqLock = new java.util.concurrent.locks.ReentrantLock();
+        private final java.util.concurrent.locks.Lock deqLock = new java.util.concurrent.locks.ReentrantLock();
+
+        private final java.util.concurrent.locks.Condition notFull = enqLock.newCondition();
+        private final java.util.concurrent.locks.Condition notEmpty = deqLock.newCondition();
 
         public FineGrainedBlockingQueue(int capacity) {
             if (capacity <= 0)
@@ -103,9 +100,6 @@ public class Task2 {
         @Override
         public void enqueue(T item) throws InterruptedException {
             // done
-            if (item == null)
-                throw new NullPointerException("item cannot be null");
-
             enqLock.lock();
             try {
                 while (size.get() == queue.length) {
@@ -113,16 +107,18 @@ public class Task2 {
                 }
                 queue[tail] = item;
                 tail = (tail + 1) % queue.length;
-                size.getAndIncrement();
+                int newSize = size.incrementAndGet();
+
+                if (newSize == 1) {
+                    deqLock.lock();
+                    try {
+                        notEmpty.signal();
+                    } finally {
+                        deqLock.unlock();
+                    }
+                }
             } finally {
                 enqLock.unlock();
-            }
-
-            deqLock.lock();
-            try{
-                notEmpty.signal();
-            } finally{
-                deqLock.unlock();
             }
         }
 
@@ -130,30 +126,28 @@ public class Task2 {
         @Override
         public T dequeue() throws InterruptedException {
             // done
-            Object result;
-
             deqLock.lock();
             try {
                 while (size.get() == 0) {
                     notEmpty.await();
                 }
-                result = queue[head];
+                Object x = queue[head];
                 queue[head] = null;
                 head = (head + 1) % queue.length;
+                int newSize = size.decrementAndGet();
 
-                size.getAndDecrement();
+                if (newSize == queue.length - 1) {
+                    enqLock.lock();
+                    try {
+                        notFull.signal();
+                    } finally {
+                        enqLock.unlock();
+                    }
+                }
+                return (T) x;
             } finally {
                 deqLock.unlock();
             }
-            
-            enqLock.lock();
-            try{
-                notFull.signal();
-            } finally{
-                enqLock.unlock();
-            }
-
-            return (T) result;
         }
 
         @Override
