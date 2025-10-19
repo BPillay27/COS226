@@ -11,6 +11,9 @@ public class Main {
 
         System.out.println("\n=== TASK 3: Producers/Consumers (10 pizzas per producer) ===");
         testTask3ProducersConsumers();
+
+        System.out.println("\n=== TASK 3b: Producers/Consumers (No Poison Pill, AtomicInteger) ===");
+        testTask3_2_ProducersConsumers();
     }
 
     private static void testTask1Barrier() throws Exception {
@@ -127,5 +130,39 @@ public class Main {
 
         int expectedPizzas = producers * Task3.PIZZAS_PER_PRODUCER;
         System.out.println("Task3 complete. Expected pizzas: " + expectedPizzas);
+    }
+
+    private static void testTask3_2_ProducersConsumers() throws Exception {
+        final int producers = 2;
+        final int consumers = 3;
+        final int capacity = 5;
+
+        BlockingQueue<Integer> queue = new ArrayBlockingQueue<>(capacity, true);
+        ExecutorService pool = Executors.newFixedThreadPool(producers + consumers);
+        List<Future<List<Integer>>> futures = new ArrayList<>();
+
+        // IMPORTANT: initialize the producersRemaining counter in Task3_2
+        Task3_2.initProducersRemaining(producers);
+
+        // submit producers
+        for (int i = 1; i <= producers; i++) {
+            futures.add(pool.submit(new Task3_2.Producer(i, queue)));
+        }
+
+        // submit consumers
+        for (int i = 1; i <= consumers; i++) {
+            futures.add(pool.submit(new Task3_2.Consumer(i, queue)));
+        }
+
+        // wait for all to finish
+        for (Future<List<Integer>> f : futures) {
+            f.get();
+        }
+
+        pool.shutdownNow();
+
+        int expectedPizzas = producers * Task3_2.PIZZAS_PER_PRODUCER;
+        System.out.println("Task3_2 complete. Expected pizzas: " + expectedPizzas
+                + " | queue size now: " + queue.size());
     }
 }
